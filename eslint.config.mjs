@@ -1,0 +1,15 @@
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+
+const config = defineConfig([
+  ...nextVitals,
+  globalIgnores([
+    ".next/**",
+    ".orcha/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default config;

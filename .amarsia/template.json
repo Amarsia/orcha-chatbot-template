@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "slug": "orcha-chatbot",
+  "name": "AI Chatbot",
+  "description": "A production-ready conversational AI application with streaming responses and durable history.",
+  "repository": "Amarsia/orcha-chatbot-template",
+  "framework": "nextjs",
+  "category": "chatbot",
+  "agent": {
+    "entrypoint": "orcha/index.ts",
+    "defaultAgent": "assistant"
+  },
+  "environment": {
+    "required": [
+      {
+        "key": "OPENAI_API_KEY",
+        "label": "OpenAI API key",
+        "secret": true
+      }
+    ],
+    "optional": [
+      {
+        "key": "AMARSIA_PROJECT_KEY",
+        "label": "Amarsia project key",
+        "secret": true
+      }
+    ]
+  },
+  "deployment": {
+    "type": "container",
+    "port": 3000,
+    "persistentStorage": {
+      "path": "/data/sessions",
+      "required": true
+    }
+  }
+}

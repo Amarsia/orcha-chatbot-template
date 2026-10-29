@@ -1,0 +1,41 @@
+{
+  "name": "orcha-chatbot-template",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "agent:playground": "orchajs playground",
+    "agent:test": "orchajs test"
+  },
+  "dependencies": {
+    "lucide-react": "^0.483.0",
+    "next": "16.4.3",
+    "next-themes": "^0.4.6",
+    "orchajs": "^0.23.8",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@orchajs/playground-ui": "^0.2.5",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "chokidar": "^4.0.3",
+    "dotenv": "^16.6.1",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.4.3",
+    "esbuild": "^0.25.9",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

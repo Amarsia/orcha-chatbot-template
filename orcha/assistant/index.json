@@ -1,0 +1,9 @@
+{
+  "name": "Nova",
+  "description": "A thoughtful AI assistant for everyday questions and focused work.",
+  "provider": "openai",
+  "model": "gpt-5-mini",
+  "region": "provider_managed",
+  "maxTokens": 4096,
+  "outputType": "text"
+}
