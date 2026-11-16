@@ -1,0 +1,27 @@
+{
+  "name": "get_current_time",
+  "description": "Get the current date and time in UTC and optionally a specific IANA timezone (such as America/New_York, Europe/London, or Asia/Tokyo).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "timezone": {
+        "type": "string",
+        "description": "Optional IANA timezone name (defaults to UTC)."
+      }
+    },
+    "additionalProperties": false
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "isoUtc": { "type": "string" },
+      "timezone": { "type": "string" },
+      "formatted": { "type": "string" },
+      "unixSeconds": { "type": "integer" }
+    },
+    "required": ["isoUtc", "timezone", "formatted", "unixSeconds"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 5000,
+  "sideEffect": "read"
+}

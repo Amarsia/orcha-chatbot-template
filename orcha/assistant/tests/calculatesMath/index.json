@@ -1,0 +1,18 @@
+{
+  "name": "Calculates math expressions",
+  "description": "Verifies Nova uses the calculate action for arithmetic.",
+  "input": {
+    "content": "What is (1250 * 1.08) / 12?"
+  },
+  "expect": {
+    "status": "completed",
+    "text": {
+      "contains": ["112.5"]
+    },
+    "actions": [
+      {
+        "name": "calculate"
+      }
+    ]
+  }
+}

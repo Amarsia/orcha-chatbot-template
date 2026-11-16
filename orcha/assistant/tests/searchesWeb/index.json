@@ -1,0 +1,41 @@
+{
+  "name": "Searches the web and cites sources",
+  "description": "Verifies Nova calls search_web when asked to look up external facts and includes the returned source URL.",
+  "input": {
+    "content": "Search the web for OrchaJS and summarize what it is."
+  },
+  "actions": {
+    "search_web": {
+      "responses": [
+        {
+          "output": {
+            "query": "OrchaJS",
+            "results": [
+              {
+                "title": "OrchaJS",
+                "snippet": "OrchaJS is a filesystem-convention framework for durable AI agents with sessions, actions, skills, and evaluations.",
+                "url": "https://example.com/orchajs"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "status": "completed",
+    "text": {
+      "contains": ["https://example.com/orchajs"]
+    },
+    "actions": [
+      {
+        "name": "search_web",
+        "arguments": {
+          "partial": {
+            "query": "OrchaJS"
+          }
+        }
+      }
+    ]
+  }
+}

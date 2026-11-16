@@ -2,15 +2,16 @@
 
 import {
   ArrowUp,
+  Check,
   Github,
+  Loader2,
   Menu,
-  MessageSquare,
-  PanelLeftClose,
+  PanelLeft,
   Plus,
-  Sparkles,
   X,
 } from "lucide-react";
 import {
+  ChangeEvent,
   FormEvent,
   KeyboardEvent,
   useCallback,
@@ -23,7 +24,8 @@ import { ChatMessage } from "@/components/chat-message";
 import { ThemeSelector } from "@/components/theme-selector";
 import { appConfig } from "@/config/app";
 import {
-  contentToText,
+  type ChatActivity,
+  type ChatAttachment,
   type ChatMessage as ChatMessageValue,
   type SessionSummary,
 } from "@/lib/chat-types";
@@ -32,6 +34,7 @@ type StreamEvent = {
   type?: unknown;
   sessionId?: unknown;
   snapshot?: unknown;
+  activities?: unknown;
   result?: unknown;
   error?: unknown;
 };
@@ -41,14 +44,18 @@ type SessionListResponse = {
   error?: string;
 };
 
-type SessionHistoryResponse = {
-  items?: Array<{
-    id?: string;
-    type?: string;
-    role?: "user" | "assistant";
-    content?: unknown;
-    createdAt?: string;
-  }>;
+type SessionDetailResponse = {
+  messages?: ChatMessageValue[];
+  error?: string;
+};
+
+type PendingAttachment = {
+  localId: string;
+  id?: string;
+  name: string;
+  mimeType: string;
+  url?: string;
+  uploading: boolean;
   error?: string;
 };
 
@@ -99,6 +106,7 @@ export function ChatApp() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [sessionId, setSessionId] = useState<string>();
   const [messages, setMessages] = useState<ChatMessageValue[]>([]);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -107,6 +115,15 @@ export function ChatApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [error, setError] = useState<string>();
   const endRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resizeTextarea = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, []);
 
   const refreshSessions = useCallback(async () => {
     try {
@@ -131,23 +148,13 @@ export function ChatApp() {
         `/api/sessions/${encodeURIComponent(nextSessionId)}`,
         { cache: "no-store" },
       );
-      const data = (await response.json()) as SessionHistoryResponse;
+      const data = (await response.json()) as SessionDetailResponse;
       if (!response.ok) {
         throw new Error(data.error || "Conversation could not be loaded.");
       }
-      const nextMessages = (data.items ?? []).flatMap((item) => {
-        if (item.type !== "message" || !item.role) return [];
-        return [
-          {
-            id: item.id ?? crypto.randomUUID(),
-            role: item.role,
-            content: contentToText(item.content),
-            createdAt: item.createdAt ?? new Date().toISOString(),
-          } satisfies ChatMessageValue,
-        ];
-      });
       setSessionId(nextSessionId);
-      setMessages(nextMessages);
+      setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setAttachments([]);
       window.history.replaceState(null, "", `/?session=${nextSessionId}`);
     } catch (loadError) {
       setError(
@@ -178,15 +185,84 @@ export function ChatApp() {
   const startNewChat = () => {
     setSessionId(undefined);
     setMessages([]);
+    setAttachments([]);
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setError(undefined);
     setIsSidebarOpen(false);
     window.history.replaceState(null, "", "/");
   };
 
+  const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (!files.length) return;
+
+    setError(undefined);
+
+    for (const file of files) {
+      const localId = crypto.randomUUID();
+      setAttachments((current) => [
+        ...current,
+        {
+          localId,
+          name: file.name,
+          mimeType: file.type || "application/octet-stream",
+          uploading: true,
+        },
+      ]);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/uploads", {
+          method: "POST",
+          body: formData,
+        });
+        const data = (await response.json()) as {
+          id?: string;
+          name?: string;
+          mimeType?: string;
+          url?: string;
+          error?: string;
+        };
+        if (!response.ok || !data.id) {
+          throw new Error(data.error || "Upload failed.");
+        }
+        setAttachments((current) =>
+          current.map((item) =>
+            item.localId === localId
+              ? {
+                  ...item,
+                  id: data.id,
+                  name: data.name || item.name,
+                  mimeType: data.mimeType || item.mimeType,
+                  url: data.url,
+                  uploading: false,
+                }
+              : item,
+          ),
+        );
+      } catch (reason) {
+        const message = reason instanceof Error ? reason.message : "Upload failed.";
+        setAttachments((current) =>
+          current.map((item) =>
+            item.localId === localId
+              ? { ...item, uploading: false, error: message }
+              : item,
+          ),
+        );
+      }
+    }
+  };
+
+  const removeAttachment = (localId: string) => {
+    setAttachments((current) => current.filter((item) => item.localId !== localId));
+  };
+
   const updateAssistant = (
     id: string,
-    update: Partial<Pick<ChatMessageValue, "content" | "pending">>,
+    update: Partial<Pick<ChatMessageValue, "content" | "pending" | "activities">>,
   ) => {
     setMessages((current) =>
       current.map((message) =>
@@ -195,9 +271,28 @@ export function ChatApp() {
     );
   };
 
+  const readyAttachments = attachments.filter(
+    (item) => item.id && !item.uploading && !item.error,
+  );
+  const hasUploading = attachments.some((item) => item.uploading);
+  const canSend =
+    (input.trim().length > 0 || readyAttachments.length > 0) &&
+    !isSending &&
+    !hasUploading &&
+    isReady;
+
   const sendMessage = async (rawMessage: string) => {
     const message = rawMessage.trim();
-    if (!message || isSending || !isReady) return;
+    if ((!message && readyAttachments.length === 0) || isSending || hasUploading || !isReady) {
+      return;
+    }
+
+    const attachmentsToSend: ChatAttachment[] = readyAttachments.map((item) => ({
+      id: item.id,
+      name: item.name,
+      mimeType: item.mimeType,
+      url: item.url,
+    }));
 
     const userMessageId = crypto.randomUUID();
     const assistantMessageId = crypto.randomUUID();
@@ -207,17 +302,21 @@ export function ChatApp() {
         id: userMessageId,
         role: "user",
         content: message,
+        attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
         createdAt: new Date().toISOString(),
       },
       {
         id: assistantMessageId,
         role: "assistant",
         content: "",
+        activities: [],
         createdAt: new Date().toISOString(),
         pending: true,
       },
     ]);
     setInput("");
+    setAttachments([]);
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     setError(undefined);
     setIsSending(true);
 
@@ -225,7 +324,11 @@ export function ChatApp() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, sessionId }),
+        body: JSON.stringify({
+          message,
+          sessionId,
+          attachments: attachmentsToSend.map((item) => ({ id: item.id })),
+        }),
       });
       if (!response.ok || !response.body) {
         const data = (await response.json().catch(() => ({}))) as {
@@ -247,6 +350,12 @@ export function ChatApp() {
             "",
             `/?session=${event.sessionId}`,
           );
+          return;
+        }
+        if (event.type === "activities" && Array.isArray(event.activities)) {
+          updateAssistant(assistantMessageId, {
+            activities: event.activities as ChatActivity[],
+          });
           return;
         }
         if (event.type === "snapshot") {
@@ -318,6 +427,100 @@ export function ChatApp() {
   );
   const isEmpty = messages.length === 0 && !isLoadingSession;
 
+  const composerBlock = (
+    <div className="composer-container">
+      {error ? (
+        <div className="error-banner" role="alert">
+          {error}
+        </div>
+      ) : null}
+
+      {appConfig.allowFileUploads ? (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf,.txt,.md,.csv,.json,.doc,.docx,.xls,.xlsx"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+      ) : null}
+
+      <form className="composer-card" onSubmit={submit}>
+        {attachments.length > 0 ? (
+          <div className="composer-attachments">
+            {attachments.map((file) => (
+              <div
+                key={file.localId}
+                title={file.error}
+                data-ready={file.id && !file.uploading ? "" : undefined}
+                data-error={file.error ? "" : undefined}
+                className="pending-chip"
+              >
+                <span className="pending-chip-name">{file.name}</span>
+                {file.uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                {file.id && !file.uploading ? <Check className="h-3 w-3" /> : null}
+                {file.error ? <span aria-label={file.error}>!</span> : null}
+                <button
+                  type="button"
+                  className="pending-chip-remove"
+                  onClick={() => removeAttachment(file.localId)}
+                  disabled={file.uploading}
+                  aria-label={`Remove ${file.name}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="composer-input-wrap">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(event) => {
+              setInput(event.target.value);
+              resizeTextarea();
+            }}
+            onKeyDown={handleComposerKeyDown}
+            placeholder={appConfig.placeholder}
+            aria-label={appConfig.placeholder}
+            rows={1}
+            maxLength={20_000}
+            disabled={isSending || !isReady}
+          />
+        </div>
+
+        <div className="composer-toolbar">
+          {appConfig.allowFileUploads ? (
+            <button
+              type="button"
+              className="composer-attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending || !isReady}
+              aria-label="Attach files"
+              title="Attach files"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          ) : (
+            <span />
+          )}
+
+          <button
+            type="submit"
+            className="send-button"
+            disabled={!canSend}
+            aria-label="Send message"
+          >
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp />}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+
   return (
     <main className="chat-shell">
       <aside
@@ -333,12 +536,20 @@ export function ChatApp() {
             aria-label={`${appConfig.name} home`}
           >
             <span className="brand-mark">
-              <Sparkles />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={appConfig.icon} alt="" className="h-full w-full object-cover" />
             </span>
             <span className="brand-copy">
               <strong>{appConfig.name}</strong>
-              <small>{appConfig.assistantLabel}</small>
             </span>
+          </button>
+          <button
+            type="button"
+            className="icon-button collapse-button"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <PanelLeft />
           </button>
           <button
             type="button"
@@ -352,11 +563,11 @@ export function ChatApp() {
 
         <button type="button" className="new-chat-button" onClick={startNewChat}>
           <Plus />
-          <span>New conversation</span>
+          <span>New chat</span>
         </button>
 
         <div className="conversation-section">
-          <p className="section-label">Conversations</p>
+          <p className="section-label">Chats</p>
           <nav aria-label="Conversation history">
             {sessions.length ? (
               sessions.map((session) => (
@@ -368,7 +579,6 @@ export function ChatApp() {
                   title={session.name || "Untitled conversation"}
                   onClick={() => void openSession(session.sessionId)}
                 >
-                  <MessageSquare />
                   <span>{session.name || "Untitled conversation"}</span>
                   <time dateTime={session.updatedAt}>
                     {formatRelativeTime(session.updatedAt)}
@@ -377,7 +587,7 @@ export function ChatApp() {
               ))
             ) : (
               <p className="conversation-empty">
-                Your conversations will appear here.
+                Your chats will appear here.
               </p>
             )}
           </nav>
@@ -385,15 +595,17 @@ export function ChatApp() {
 
         <div className="sidebar-footer">
           <ThemeSelector />
-          <a
-            href="https://github.com/Amarsia/orcha"
-            target="_blank"
-            rel="noreferrer"
-            className="github-link"
-          >
-            <Github />
-            <span>OrchaJS</span>
-          </a>
+          {appConfig.poweredBy ? (
+            <a
+              href={appConfig.poweredBy.url}
+              target="_blank"
+              rel="noreferrer"
+              className="github-link"
+            >
+              <Github />
+              <span>{appConfig.poweredBy.label}</span>
+            </a>
+          ) : null}
         </div>
       </aside>
 
@@ -408,29 +620,22 @@ export function ChatApp() {
 
       <section className="chat-panel">
         <header className="chat-header">
-          <button
-            type="button"
-            className="icon-button mobile-menu"
-            onClick={() => setIsSidebarOpen(true)}
-            aria-label="Open sidebar"
-          >
-            <Menu />
-          </button>
-          <div className="chat-title">
-            <strong>{activeSession?.name || appConfig.name}</strong>
-            <span>
-              <i data-error={error || undefined} />
-              {error ? "Needs attention" : "Ready"}
-            </span>
+          <div className="chat-header-left">
+            <button
+              type="button"
+              className="icon-button mobile-menu"
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
+              <Menu />
+            </button>
+            {!isEmpty ? (
+              <div className="chat-title">
+                <i className="chat-status-dot" data-error={error || undefined} />
+                <strong>{activeSession?.name || appConfig.name}</strong>
+              </div>
+            ) : null}
           </div>
-          <button
-            type="button"
-            className="icon-button collapse-button"
-            onClick={() => setSidebarCollapsed((current) => !current)}
-            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <PanelLeftClose />
-          </button>
         </header>
 
         <div className="messages-viewport">
@@ -441,25 +646,36 @@ export function ChatApp() {
               <span />
             </div>
           ) : isEmpty ? (
-            <div className="welcome">
-              <div className="welcome-mark">
-                <Sparkles />
+            <div className="welcome-stage">
+              <div className="welcome-heading">
+                <div className="welcome-mark">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={appConfig.icon} alt={appConfig.name} className="h-full w-full object-cover" />
+                </div>
+                <h1>{appConfig.welcome.title}</h1>
               </div>
-              <h1>{appConfig.welcome.title}</h1>
-              <p>{appConfig.welcome.description}</p>
-              <div className="prompt-grid">
-                {appConfig.suggestedPrompts.map((suggestion) => (
-                  <button
-                    key={suggestion.title}
-                    type="button"
-                    disabled={!isReady}
-                    onClick={() => void sendMessage(suggestion.prompt)}
-                  >
-                    <strong>{suggestion.title}</strong>
-                    <span>{suggestion.prompt}</span>
-                  </button>
-                ))}
-              </div>
+
+              {appConfig.welcome.description ? (
+                <p className="welcome-subtitle">{appConfig.welcome.description}</p>
+              ) : null}
+
+              <div className="welcome-composer-wrap">{composerBlock}</div>
+
+              {appConfig.suggestedPrompts.length > 0 ? (
+                <div className="prompt-pills">
+                  {appConfig.suggestedPrompts.map((suggestion) => (
+                    <button
+                      key={suggestion.title}
+                      type="button"
+                      className="prompt-pill"
+                      disabled={!isReady}
+                      onClick={() => void sendMessage(suggestion.prompt)}
+                    >
+                      {suggestion.title}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="message-list" aria-live="polite">
@@ -471,36 +687,14 @@ export function ChatApp() {
           )}
         </div>
 
-        <div className="composer-region">
-          {error ? (
-            <div className="error-banner" role="alert">
-              {error}
-            </div>
-          ) : null}
-          <form className="composer" onSubmit={submit}>
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleComposerKeyDown}
-              placeholder="Message Nova…"
-              aria-label="Message Nova"
-              rows={1}
-              maxLength={20_000}
-              disabled={isSending || !isReady}
-            />
-            <button
-              type="submit"
-              className="send-button"
-              disabled={!input.trim() || isSending || !isReady}
-              aria-label="Send message"
-            >
-              <ArrowUp />
-            </button>
-          </form>
-          <p className="composer-note">
-            {appConfig.name} can make mistakes. Check important information.
-          </p>
-        </div>
+        {!isEmpty ? (
+          <div className="composer-region">
+            {composerBlock}
+            {appConfig.disclaimer ? (
+              <p className="composer-note">{appConfig.disclaimer}</p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
     </main>
   );

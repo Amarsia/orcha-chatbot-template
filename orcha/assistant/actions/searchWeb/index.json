@@ -1,0 +1,54 @@
+{
+  "name": "search_web",
+  "description": "Search the live web for current facts, news, weather, people, companies, or general knowledge and return matching titles, snippets, and source URLs.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Search query to look up."
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10,
+        "description": "Maximum number of results to return (default 5)."
+      }
+    },
+    "required": ["query"],
+    "additionalProperties": false
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "query": { "type": "string" },
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "snippet": { "type": "string" },
+            "url": { "type": "string" }
+          },
+          "required": ["title", "snippet", "url"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["query", "results"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 15000,
+  "permissions": {
+    "env": ["FIRECRAWL_API_KEY", "TAVILY_API_KEY"],
+    "network": [
+      "api.firecrawl.dev",
+      "api.tavily.com",
+      "html.duckduckgo.com",
+      "lite.duckduckgo.com",
+      "en.wikipedia.org"
+    ]
+  },
+  "sideEffect": "read"
+}

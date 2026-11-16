@@ -12,9 +12,9 @@ export class AppConfigurationError extends Error {
 }
 
 export function getAssistant(): AgentRuntime {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.AMARSIA_PROJECT_KEY?.trim()) {
     throw new AppConfigurationError(
-      "OPENAI_API_KEY is not configured. Add it to .env.local and restart the application.",
+      "AMARSIA_PROJECT_KEY is not configured. Add it to .env.local and restart the application.",
     );
   }
 

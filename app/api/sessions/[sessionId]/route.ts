@@ -2,6 +2,10 @@ import {
   AppConfigurationError,
   getAssistant,
 } from "@/lib/orcha-server";
+import {
+  buildMessagesFromEvents,
+  readAllSessionEvents,
+} from "@/lib/session-timeline";
 import { resolveVisitor, withVisitorCookie } from "@/lib/visitor";
 
 export const runtime = "nodejs";
@@ -30,16 +34,19 @@ export async function GET(
         { status: 404 },
       );
     }
-    const history = await assistant.history(sessionId, {
-      page: 1,
-      pageSize: 200,
-    });
-    return Response.json(history, {
-      headers: withVisitorCookie(
-        { "Cache-Control": "no-store" },
-        visitor.setCookie,
-      ),
-    });
+
+    const events = await readAllSessionEvents(assistant, sessionId);
+    const messages = await buildMessagesFromEvents(events, visitor.id);
+
+    return Response.json(
+      { ...session, messages },
+      {
+        headers: withVisitorCookie(
+          { "Cache-Control": "no-store" },
+          visitor.setCookie,
+        ),
+      },
+    );
   } catch (error) {
     const message =
       error instanceof AppConfigurationError
