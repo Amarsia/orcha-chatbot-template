@@ -11,6 +11,15 @@ A full-stack Next.js AI chatbot starter powered by **[OrchaJS](https://github.co
 
 ---
 
+## Why This Template
+
+- **No separate backend required** — Everything runs inside this single Next.js app. OrchaJS handles model routing, tool execution, streaming, file uploads, and durable session timelines directly inside Next.js Route Handlers—no separate Python/FastAPI backend or external worker needed.
+- **`npm run dev` and go** — Install dependencies, set `AMARSIA_PROJECT_KEY` (or your own provider key) in `.env.local`, and run `npm run dev` for a full-featured AI chatbot in seconds.
+- **Filesystem-convention agents** — Instructions, model config, local actions, skills, subagents, and tests live under `orcha/`, so you can change models or add tools without rewriting the chat UI.
+- **Durable by default** — Conversations, uploaded attachments, and inline tool/reasoning traces persist across reloads with visitor isolation and zero extra database setup.
+
+---
+
 ## What's Included
 
 - **Claude-style chat interface** — Centered welcome stage, collapsible sidebar, Markdown + GFM rendering, and light/dark/system themes.
