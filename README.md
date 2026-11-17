@@ -2,6 +2,8 @@
 
 A full-stack Next.js AI chatbot starter powered by **[OrchaJS](https://github.com/Amarsia/orcha)** (`orchajs` [on npm](https://www.npmjs.com/package/orchajs)). Use it as a production-ready template or as a hands-on tutorial for building durable, tool-using conversational agents with a Claude-inspired interface.
 
+![Orcha Chatbot Workspace](docs/preview.png)
+
 ## Links
 
 - **OrchaJS GitHub**: [github.com/Amarsia/orcha](https://github.com/Amarsia/orcha)
@@ -50,9 +52,9 @@ cp .env.example .env.local
 
 ### 2. Configure environment variables
 
-Choose either **Amarsia Inference** (recommended to get started quickly with free credits, cloud storage, and telemetry) or **your own model provider keys** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.):
+Choose either **Amarsia AI Gateway** (recommended to get started quickly with free credits, cloud storage, and telemetry) or **your own model provider keys** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.):
 
-**Option A — Amarsia Inference (includes free credits):**
+**Option A — Amarsia AI Gateway (includes free credits):**
 
 1. Sign up on [Amarsia](https://amarsia.com), go to **Projects**, click **Connect New Project**, and copy the generated project key.
 2. Add it to `.env.local`:
@@ -68,7 +70,7 @@ AMARSIA_API_URL=https://api.amarsia.com
 
 **Option B — Your own model provider keys:**
 
-If you prefer not to use Amarsia Inference, you can pass your own provider API keys directly in `orcha/index.ts` (for example `providers: { openai: process.env.OPENAI_API_KEY ?? "" }`, or `anthropic`, `googlegenai`, `deepseek`, `bedrock`, `vertexai`) and update the key check in `lib/orcha-server.ts`. See the [OrchaJS documentation](https://github.com/Amarsia/orcha) for all provider configurations.
+If you prefer not to use Amarsia AI Gateway, you can pass your own provider API keys directly in `orcha/index.ts` (for example `providers: { openai: process.env.OPENAI_API_KEY ?? "" }`, or `anthropic`, `googlegenai`, `deepseek`, `bedrock`, `vertexai`) and update the key check in `lib/orcha-server.ts`. See the [OrchaJS documentation](https://github.com/Amarsia/orcha) for all provider configurations.
 
 ### 3. Run the development server
 
@@ -150,7 +152,7 @@ lib/
   uploads.ts            Visitor-scoped file storage helpers
   visitor.ts            HttpOnly visitor cookie helper
 orcha/
-  index.ts              Orcha registry (Amarsia inference, storage, action env)
+  index.ts              Orcha registry (Amarsia AI Gateway, storage, action env)
   assistant/
     index.json          Model configuration
     instructions.md     System prompt
